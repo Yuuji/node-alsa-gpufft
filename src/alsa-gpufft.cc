@@ -5,7 +5,7 @@
 using namespace v8;
 using namespace node;
 
-namespace alsa {
+namespace alsa_gpufft {
 
 void Init(Handle<Object> exports) {
   Pcm::Init(exports);
@@ -13,4 +13,4 @@ void Init(Handle<Object> exports) {
 
 }
 
-NODE_MODULE(alsa, alsa::Init)
+NODE_MODULE(alsa_gpufft, alsa_gpufft::Init)

@@ -1,23 +1,24 @@
 {
-  "name": "alsa",
-  "description": "ALSA bindings for Node.js",
+  "name": "alsa-gpufft",
+  "description": "ALSA bindings and gpu_fft for Node.js",
   "keywords": [
     "audio",
     "sound",
+    "fft",
     "alsa",
     "libasound"
   ],
-  "version": "0.0.2",
-  "author": "Greg Thornton <xdissent@me.com> (http://xdissent.com)",
+  "version": "0.0.1",
+  "author": "Mia Sophie Moeller <m.moeller@bytevision.net>, Original alsa part by: Greg Thornton <xdissent@me.com> (http://xdissent.com)",
   "license": "MIT",
-  "homepage": "https://github.com/xdissent/node-alsa",
+  "homepage": "https://github.com/yuuji/node-alsa-gpufft",
   "main": "./lib/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xdissent/node-alsa.git"
+    "url": "https://github.com/yuuji/node-alsa-gpufft.git"
   },
   "bugs": {
-    "url": "https://github.com/xdissent/node-alsa/issues"
+    "url": "https://github.com/yuuji/node-alsa-gpufft/issues"
   },
   "dependencies": {},
   "devDependencies": {

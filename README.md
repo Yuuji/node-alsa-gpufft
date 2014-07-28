@@ -1,14 +1,12 @@
-node-alsa
+node-alsa-gpufft
 =========
 
-ALSA bindings for Node.js
-
-[![NPM version](https://badge.fury.io/js/alsa.png)](http://badge.fury.io/js/alsa)
-
+ALSA bindings and gpu_fft for Node.js
 
 Requirements
 ------------
 
+This code works only on a rasperry pi with a up2date firmware!
 You must have a system on which ALSA is supported with the `libasound2-dev` package installed:
 
 ```sh
@@ -21,26 +19,20 @@ You'll also probably want to have an audio device for either playback or capture
 Installation
 ------------
 
-Install with npm:
+Install via git:
 
 ```sh
-$ npm install alsa
-```
-
-or via git:
-
-```sh
-$ npm install git+https://github.com/xdissent/node-alsa.git
+$ npm install git+https://github.com/yuuji/node-alsa-gpufft.git
 ```
 
 
 Usage
 -----
 
-The `alsa` module exports 2 high-level classes for playback and recording.
+The `alsa-gpufft` module exports 2 high-level classes for playback and recording.
 
 ```js
-var alsa = require('alsa'),
+var alsa_gpufft = require('alsa-gpufft'),
 
   // The following variables represent the defaults for the Playback and Capture constructors.
   device = 'default',                   // ALSA default device
@@ -51,11 +43,11 @@ var alsa = require('alsa'),
   latency = 500;                        // Desired latency in milliseconds
 
 // The Capture class is a stream.Readable subclass.
-var capture = new alsa.Capture(device, channels, rate, format, access, latency);
+var capture = new alsa_gpufft.Capture(device, channels, rate, format, access, latency);
 capture.pipe(process.stdout);   // Treat it like any other readable stream.
 
 // The Playback class is a stream.Writable subclass.
-var playback = new alsa.Playback(device, channels, rate, format, access, latency);
+var playback = new alsa_gpufft.Playback(device, channels, rate, format, access, latency);
 process.stdin.pipe(playback);   // Treat it like any other writable stream.
 
 // Want to do both at the same time? Not a problem:
@@ -69,7 +61,7 @@ Examples
 Downsample audio captured from an ALSA device to a sample rate of 11025, in mono, encoded to 32 bit float PCM data and output to stdout:
 
 ```coffeescript
-alsa = require 'alsa'
+alsa_gpufft = require 'alsa_gpufft'
 stream = require 'stream'
 
 class Downer extends stream.Transform
@@ -92,7 +84,7 @@ class Downer extends stream.Transform
     callback()    # And we're done.
 
 # Create a Capture and a Downer and chain them to stdout.
-capture = new alsa.Capture
+capture = new alsa_gunfft.Capture
 downer = new Downer
 capture.pipe(downer).pipe(process.stdout)
 ```

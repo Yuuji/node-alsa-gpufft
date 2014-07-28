@@ -4,12 +4,15 @@
 #include <node.h>
 #include <node_buffer.h>
 #include <alsa/asoundlib.h>
+
 #include "macros.h"
+#include "mailbox.h"
+#include "gpu_fft.h"
 
 using namespace v8;
 using namespace node;
 
-namespace alsa {
+namespace alsa_gpufft {
 
 class Pcm;
 
@@ -42,6 +45,7 @@ protected:
     closing = false;
     leftovers = NULL;
     leftoversLength = 0;
+	do_fft = false;
   }
 
   struct Baton {
@@ -129,6 +133,9 @@ protected:
   bool closing;
   char *leftovers;
   int leftoversLength;
+  bool do_fft;
+  int fft_mb;
+  struct GPU_FFT *fft;
 };
 
 }

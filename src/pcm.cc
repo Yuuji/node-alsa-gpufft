@@ -1,6 +1,9 @@
-#include "pcm.h"
+#include <math.h>
 
-using namespace alsa;
+#include "pcm.h"
+#include "mailbox.h"
+
+using namespace alsa_gpufft;
 
 void Pcm::Init(Handle<Object> exports) {
   Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
@@ -37,6 +40,10 @@ Handle<Value> Pcm::New(const Arguments& args) {
   args.This()->Set(String::NewSymbol("format"), args[2], ReadOnly);
   args.This()->Set(String::NewSymbol("access"), args[3], ReadOnly);
   args.This()->Set(String::NewSymbol("latency"), args[4], ReadOnly);
+
+  if (args.Length() > 5) {
+  	args.This()->Set(String::NewSymbol("fft"), args[5], ReadOnly);
+  }
 
   return args.This();
 }
@@ -99,6 +106,26 @@ Handle<Value> Pcm::Open(const Arguments& args) {
   pcm->writable = (stream == SND_PCM_STREAM_PLAYBACK);
   pcm->interleaved = (access == SND_PCM_ACCESS_RW_INTERLEAVED);
 
+  bool do_fft = args.Holder()->Get(String::NewSymbol("fft"))->BooleanValue();
+
+  if (do_fft) {
+	printf("do_fft!\n");
+    pcm->fft_mb = mbox_open();
+
+    int ret = gpu_fft_prepare(pcm->fft_mb, 12 /* 8 <= log2_N <= 17 */, GPU_FFT_FWD, 1024 /* jobs */, &pcm->fft);
+printf("Ret: %i\n", ret);
+    switch (ret) {
+	  case -1:
+	    COND_ERR_CALL(true, callback, "Unable to enable V30. Please check your firmware is up to date.");
+	  case -3:
+	    COND_ERR_CALL(true, callback, "Out of memory. Try a smaller batch or increase GPU memory.");
+	}
+
+    pcm->do_fft = true;
+  } else {
+    pcm->do_fft = false;
+  }
+
   if (!callback.IsEmpty() && callback->IsFunction())  {
     Local<Value> argv[0] = { };
     TRY_CATCH_CALL(args.Holder(), callback, 0, argv);
@@ -113,6 +140,11 @@ Handle<Value> Pcm::Close(const Arguments& args) {
   OPTIONAL_ARGUMENT_FUNCTION(0, callback);
 
   Pcm *pcm = ObjectWrap::Unwrap<Pcm>(args.Holder());
+
+  if (pcm->do_fft) {
+    gpu_fft_release(pcm->fft);
+	pcm->do_fft = false;
+  }
 
   COND_ERR_CALL(!pcm->opened, callback, "Not open");
   COND_ERR_CALL(pcm->closing, callback, "Already closing");
@@ -269,8 +301,51 @@ void Pcm::AfterRead(uv_work_t* req) {
 
   } else {
     // Success - copy the buffer and pass it to callback and read again
-    Buffer *buf = Buffer::New(baton->buffer, snd_pcm_frames_to_bytes(pcm->handle, baton->result));
-    argv[1] = Local<Value>::New(buf->handle_);
+
+	if (pcm->do_fft) {
+      struct GPU_FFT_COMPLEX *base;
+	  int freq, N;
+
+	  N = 1<<12;
+
+	  double *in = new double[1024];
+      size_t inSize = snd_pcm_frames_to_bytes(pcm->handle, baton->result);
+      Buffer *inBuf = Buffer::New(baton->buffer, inSize);
+	  
+	  memcpy(in, Buffer::Data(inBuf), inSize);
+
+      for (int j=0; j < 1024; j++) {
+	    base = pcm->fft->in + j*pcm->fft->step; // input buffer
+		for (int i=0; i<N; i++) {
+		  base[i].re = base[i].im = 0;
+		}
+		freq = j+1;
+		base[freq].re = base[N-freq].re = in[j];
+	  }
+
+	  usleep(1); // Yield to OS
+	  gpu_fft_execute(pcm->fft);
+
+	  double *out = new double[1024*N];
+
+	  for (int j=0; j<1024; j++) {
+        base = pcm->fft->out + j*pcm->fft->step; // output buffer
+		freq = j+1;
+		for (int i=0; i<N; i++) {
+          double re = cos(2*GPU_FFT_PI*freq*i/N);
+		  out[(j*N)+i] = re;
+		}
+	  }
+
+	  int bufsize = sizeof(double)*1024*N;
+      Buffer *buf = Buffer::New(bufsize);
+	  memcpy(Buffer::Data(buf), out, bufsize);
+      argv[1] = Local<Value>::New(buf->handle_);
+	  
+	} else {
+      Buffer *buf = Buffer::New(baton->buffer, snd_pcm_frames_to_bytes(pcm->handle, baton->result));
+      argv[1] = Local<Value>::New(buf->handle_);
+	}
   }
 
   // Run the callback
